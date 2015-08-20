@@ -1,6 +1,5 @@
 #+TITLE:  齡一 / 1st-instar
 #+AUTHOR: 謝宇恆 / XIE Yuheng
-#+EMAIL:  xyheme@gmail.com
 
 * ===================================
 * note instar
