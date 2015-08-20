@@ -1,14 +1,9 @@
-define platform windows
-define machine  32bit
-
 ;; in fasm, "dup" is a reserved word
 dup equ duplicate
 
 ;; in fasm, "end" is a reserved word
 finish equ end
 end equ exit
-
-match =32bit, machine {
 
 cell_size = 4 ;; (byte)
 xx equ dd
@@ -24,27 +19,24 @@ rdi equ edi
 
 syscall equ int 80h
 
-}
+define linux32_sys_6_ebp ebp
+define linux32_sys_5_edi edi
+define linux32_sys_4_esi esi
+define linux32_sys_3_edx edx
+define linux32_sys_2_ecx ecx
+define linux32_sys_1_ebx ebx
+define linux32_sys_n_eax eax
 
-match =windows =32bit, platform machine {
+define linux32_syscall_exit    1
+define linux32_syscall_read    3
+define linux32_syscall_write   4
+define linux32_syscall_open    5
+define linux32_syscall_close   6
 
-define STD_INPUT_HANDLE  -10
-define STD_OUTPUT_HANDLE -11
-
-}
-
-match =windows =32bit, platform machine {
-
-format PE console as "32.exe"
-
-}
-
-match =windows =32bit, platform machine {
+format ELF executable 3
 
 entry begin_to_interpret_threaded_code
-section '.text' code writeable readable executable
-
-}
+segment readable executable writeable
 
 current_free_address$un_initialized_memory = address$un_initialized_memory
 
@@ -55,39 +47,10 @@ preserve 64 * cell_size
 address$argument_stack labeling
    preserve 1024 * 1024 * cell_size
 
-match =64bit, machine {
-
-;; if you want to extend cicada in assembly
-;; the following registers must NOT be used
-
-define pointer$argument_stack r15
-
-}
-
-match =64bit, machine {
-
-macro push_argument_stack register \{
-   mov [pointer$argument_stack], register
-   add pointer$argument_stack, cell_size
-\}
-
-macro pop_argument_stack register \{
-   sub pointer$argument_stack, cell_size
-   mov register, [pointer$argument_stack]
-\}
-
-}
-
-match =32bit, machine {
-
 pointer$argument_stack:
    xx address$argument_stack
 
-}
-
-match =32bit, machine {
-
-macro push_argument_stack register \{
+macro push_argument_stack register {
    if register in <eax>
    push ebx
    mov ebx, [pointer$argument_stack]
@@ -103,9 +66,9 @@ macro push_argument_stack register \{
    mov [pointer$argument_stack], eax
    pop eax
    finish if
-\}
+}
 
-macro pop_argument_stack register \{
+macro pop_argument_stack register {
    if register in <eax>
    push ebx
    mov ebx, [pointer$argument_stack]
@@ -121,47 +84,16 @@ macro pop_argument_stack register \{
    mov [pointer$argument_stack], eax
    pop eax
    finish if
-\}
-
 }
 
 preserve 64 * cell_size
 address$return_stack labeling
    preserve 1024 * 1024 * cell_size
 
-match =64bit, machine {
-
-;; if you want to extend cicada in assembly
-;; the following registers must NOT be used
-
-define pointer$return_stack r14
-
-}
-
-match =64bit, machine {
-
-macro push_return_stack register \{
-   mov [pointer$return_stack], register
-   add pointer$return_stack, cell_size
-\}
-
-macro pop_return_stack register \{
-   sub pointer$return_stack, cell_size
-   mov register, [pointer$return_stack]
-\}
-
-}
-
-match =32bit, machine {
-
 pointer$return_stack:
    xx address$return_stack
 
-}
-
-match =32bit, machine {
-
-macro push_return_stack register \{
+macro push_return_stack register {
    if register in <eax>
    push ebx
    mov ebx, [pointer$return_stack]
@@ -177,76 +109,39 @@ macro push_return_stack register \{
    mov [pointer$return_stack], eax
    pop eax
    finish if
-\}
+}
 
-macro pop_return_stack register \{
+macro pop_return_stack register {
    if register in <eax>
+   push ebx
    mov ebx, [pointer$return_stack]
    sub ebx, cell_size
    mov register, [ebx]
    mov [pointer$return_stack], ebx
+   pop ebx
    else
+   push eax
    mov eax, [pointer$return_stack]
    sub eax, cell_size
    mov register, [eax]
    mov [pointer$return_stack], eax
+   pop eax
    finish if
-\}
-
 }
 
-match =64bit, machine {
-
-macro next \{
-   pop_return_stack rbx
-     mov rax, [rbx]
-   add rbx, cell_size
-   push_return_stack rbx
-     jmp qword [rax]
-\}
-
-}
-
-
-match =32bit, machine {
-
-macro next \{
+macro next {
    pop_return_stack rbx
      mov rax, [rbx]
    add rbx, cell_size
    push_return_stack rbx
      jmp dword [rax]
-\}
-
 }
-
-match =windows =32bit, platform machine {
 
 __exit_with_tos:
-
-   pop_argument_stack rax
-   push rax
-   call [ExitProcess]
-
-}
-
-match =windows =32bit, platform machine {
-
-__exit_with_zero:
-
-   push 0
-   call [ExitProcess]
-
-}
-
-match =windows =32bit, platform machine {
-
-__exit_with_six:
-
-   push 6
-   call [ExitProcess]
-
-}
+   ;; << exit-code -- >>
+   pop_argument_stack linux32_sys_1_ebx
+   mov linux32_sys_n_eax, linux32_syscall_exit
+   syscall
 
 ;; initial link to point to 0 (as null)
 link = 0
@@ -361,51 +256,23 @@ define_primitive_function "end", end
    pop_return_stack rbx
    next
 
-match =64bit, machine {
-
-define_primitive_function "tail-call", tail_call
-   pop_return_stack rbx
-   mov rax, [rbx]
-   jmp qword [rax]
-}
-
-
-match =32bit, machine {
-
 define_primitive_function "tail-call", tail_call
    pop_return_stack rbx
    mov rax, [rbx]
    jmp dword [rax]
 
-}
-
-match =windows =32bit, platform machine {
-
-_output_handle:
-   xx 0
-_input_handle:
-   xx 0
-
 begin_to_interpret_threaded_code:
 
    cld ;; set DF = 0, then rsi and rdi are incremented
-
-   push STD_INPUT_HANDLE
-   call [GetStdHandle]
-   mov [_input_handle], rax
-
-   push STD_OUTPUT_HANDLE
-   call [GetStdHandle]
-   mov [_output_handle], rax
 
    mov rax, first_jojo
    push_return_stack rax
    next
 
-}
 
 first_jojo:
    xx little_test
+   xx end
 
 define_primitive_function "bye", exit_with_tos
    call __exit_with_tos
@@ -419,11 +286,11 @@ define_function "little_test", little_test
    ;;;; variable
    ;; xx V__little_test_number
    ;; xx exit_with_tos
-   ;;;; exit ocde : 3
+   ;;;; 3
 
    ;;;; literal
-   xx literal, 4
-   xx exit_with_tos
+   ;; xx literal, 4
+   ;; xx exit_with_tos
    ;;;; exit ocde : 4
 
    ;;;; address
@@ -434,10 +301,10 @@ define_function "little_test", little_test
    ;;;; exit ocde : 5
 
    ;;;; tail_call
-   ;; xx literal, 2
-   ;; xx literal, 4
-   ;; xx power
-   ;; xx exit_with_tos
+   xx literal, 2
+   xx literal, 4
+   xx power
+   xx exit_with_tos
    ;;;; exit ocde : 16
 
 define_primitive_function "drop", drop
@@ -450,8 +317,6 @@ define_primitive_function "drop2", drop2
    pop_argument_stack rax
    pop_argument_stack rax
    next
-
-match =32bit, machine {
 
 define_primitive_function "dup", dup
    ;; << a -- a a >>
@@ -469,10 +334,6 @@ define_primitive_function "dup2", dup2
    push_argument_stack rax
    push_argument_stack rbx
    next
-
-}
-
-match =32bit, machine {
 
 define_primitive_function "over", over
    ;; << a b -- a b | a >>
@@ -521,8 +382,6 @@ define_primitive_function "xx|over|xxxx", xxoverxxxx
    mov rax, [rbx - (5 * cell_size)]
    push_argument_stack rax
    next
-
-}
 
 define_primitive_function "tuck", tuck
    ;; << a b -- b | a b >>
@@ -582,8 +441,6 @@ define_primitive_function "xxx|tuck|x", xxxtuckx
    push_argument_stack rcx
    push_argument_stack rdx
    next
-
-match =32bit, machine {
 
 define_primitive_function "swap", swap
    ;; << a b -- b a >>
@@ -739,8 +596,6 @@ define_primitive_function "xxxx|swap|xx", xxxxswapxx
    push_argument_stack edx
    next
 
-}
-
 define_variable "*literal*", V__literal
    xx literal
 
@@ -822,8 +677,6 @@ define_function "true?", true?
    xx true, equal?
    xx end
 
-match =32bit, machine {
-
 define_primitive_function "bitwise-and", bitwise_and
    ;; << a, b -- a and b >>
    pop_argument_stack rbx
@@ -851,8 +704,6 @@ define_primitive_function "bitwise-invert", bitwise_invert
    not dword [rax - (1 * cell_size)]
    next
 
-}
-
 define_primitive_function "zero", zero
    ;; << -- 0 >>
    xor rax, rax
@@ -875,8 +726,6 @@ define_function "one?", one?
    ;; << bool -- bool >>
    xx one, equal?
    xx end
-
-match =32bit, machine {
 
 define_primitive_function "add1", add1
    ;; << n -- n+1 >>
@@ -977,8 +826,6 @@ define_primitive_function "sub", subtraction
    sub rax, rbx
    push_argument_stack rax
    next
-
-}
 
 define_primitive_function "mul", multiple
    ;; << a b -- a*b >>
@@ -1103,8 +950,6 @@ define_function "positive?", positive?
    xx negative?, false?
    xx end
 
-match =32bit, machine {
-
 ;; "save" and "fetch" default to a cell_size
 ;; the rule of "fetch2" and so on are:
 ;;   in memory:
@@ -1196,10 +1041,6 @@ define_primitive_function "sub-save", sub_save
    sub dword [rbx], rax
    next
 
-}
-
-match =32bit, machine {
-
 define_primitive_function "fetch", fetch
    ;; ( address -- value )
    pop_argument_stack  rbx
@@ -1264,113 +1105,8 @@ define_function "fetch2", fetch2
    xx n_fetch
    xx end
 
-}
+size$un_initialized_memory = 16 * 1024 * 1024 ;; (byte)
 
-define_variable "*un-initialized-memory*", V__un_initialized_memory
-  xx address$un_initialized_memory
-
-define_variable "*size,un-initialized-memory*", V__size__un_initialized_memory
-  xx size$un_initialized_memory
-
-define_variable "*current-free-address,un-initialized-memory*", V__current_free_address__un_initialized_memory
-  xx current_free_address$un_initialized_memory
-
-match =windows =32bit, platform machine {
-
-size$un_initialized_memory = 64 * 1024 * 1024 ;; (byte)
-
-section '.data' data readable writeable
+segment readable writeable
 address$un_initialized_memory:
    rb size$un_initialized_memory
-
-}
-
-if platform eq windows
-if machine eq 32bit
-
-; Macroinstructions for making import section
-
-macro library [name,string] {
-   common
-    import.data:
-   forward
-    local _label
-    if defined name#.redundant
-     if ~ name#.redundant
-      dd RVA name#.lookup,0,0,RVA _label,RVA name#.address
-     finish if
-    finish if
-    name#.referred = 1
-   common
-    dd 0,0,0,0,0
-   forward
-    if defined name#.redundant
-     if ~ name#.redundant
-      _label db string,0
-             rb RVA $ and 1
-     finish if
-    finish if
-}
-
-macro import name,[label,string]
- { common
-    rb (- rva $) and 3
-    if defined name#.referred
-     name#.lookup:
-   forward
-     if used label
-      if string eqtype ''
-       local _label
-       dd RVA _label
-      else
-       dd 80000000h + string
-      finish if
-     finish if
-   common
-     if $ > name#.lookup
-      name#.redundant = 0
-      dd 0
-     else
-      name#.redundant = 1
-     finish if
-     name#.address:
-   forward
-     if used label
-      if string eqtype ''
-       label dd RVA _label
-      else
-       label dd 80000000h + string
-      finish if
-     finish if
-   common
-     if ~ name#.redundant
-      dd 0
-     finish if
-   forward
-     if used label & string eqtype ''
-     _label dw 0
-            db string,0
-            rb RVA $ and 1
-     finish if
-   common
-    finish if
-}
-
-finish if
-finish if
-
-match =windows =32bit, platform machine {
-
-section '.idata' import data readable writeable
-
-library kernel32,'KERNEL32.DLL'
-
-import kernel32,\
-       ExitProcess,'ExitProcess',\
-       ReadFile,'ReadFile',\
-       WriteFile,'WriteFile',\
-       GetStdHandle,'GetStdHandle',\
-       CloseHandle, 'CloseHandle',\
-       CreateFileA, 'CreateFileA'
-
-}

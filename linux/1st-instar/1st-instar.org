@@ -5,7 +5,7 @@
 * note instar
 ** 1st-instar
    * indirect-threaded-code interpreter
-     1. macro about argument_stack & return_stack
+     1. macro about argument-stack & return-stack
      2. macro about jo & jojo
      3. macro about next
      4. the way to do memory allocation

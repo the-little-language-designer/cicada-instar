@@ -1,36 +1,18 @@
 #+TITLE:  齡二 / 2nd-instar
 #+AUTHOR: 謝宇恆 / XIE Yuheng
-#+EMAIL:  xyheme@gmail.com
 
 * ===================================
 * note instar
 ** 1st-instar
    * indirect-threaded-code interpreter
-     1. macro about argument_stack & return_stack
+     1. macro about argument-stack & return-stack
      2. macro about jo & jojo
      3. macro about next
      4. the way to do memory allocation
      5. begin_to_interpret_threaded_code
      6. little_test
-** 2ed-instar
-   * instruction as special primitive function
-     1. literal
-     2. address
-   * and primitive functions about
-     1. the stack
-     2. bool
-     3. fixnum
-     4. memory
-   * and tail_call for explicit tail-call
-   * false?branch and tail_call are needed for "power"
 * ===================================
 * prolog
-** ----------------------------------
-** platform configuration
-   #+begin_src fasm :tangle cicada-nymph.fasm
-   define platform windows
-   define machine  32bit
-   #+end_src
 ** misc
    #+begin_src fasm :tangle cicada-nymph.fasm
    ;; in fasm, "dup" is a reserved word
@@ -40,11 +22,8 @@
    finish equ end
    end equ exit
    #+end_src
-** ----------------------------------
-** cell_size [32bit]
+** cell_size                          :32bit:
    #+begin_src fasm :tangle cicada-nymph.fasm
-   match =32bit, machine {
-
    cell_size = 4 ;; (byte)
    xx equ dd
 
@@ -58,41 +37,32 @@
    rdi equ edi
 
    syscall equ int 80h
-
-   }
    #+end_src
-** ----------------------------------
-** note calling convention
-   * [[https://msdn.microsoft.com/en-us/library/k2b2ssfy.aspx][Calling Conventions]]
-   * [[https://msdn.microsoft.com/en-us/library/a5s9345t.aspx][Calling Example: Function Prototype and Call]]
-     [[https://msdn.microsoft.com/en-us/library/25687bhx.aspx][Results of Calling Example]]
-** header [windows32]
+** header                             :32bit:linux:
    #+begin_src fasm :tangle cicada-nymph.fasm
-   match =windows =32bit, platform machine {
+   define linux32_sys_6_ebp ebp
+   define linux32_sys_5_edi edi
+   define linux32_sys_4_esi esi
+   define linux32_sys_3_edx edx
+   define linux32_sys_2_ecx ecx
+   define linux32_sys_1_ebx ebx
+   define linux32_sys_n_eax eax
 
-   define STD_INPUT_HANDLE  -10
-   define STD_OUTPUT_HANDLE -11
-
-   }
+   define linux32_syscall_exit    1
+   define linux32_syscall_read    3
+   define linux32_syscall_write   4
+   define linux32_syscall_open    5
+   define linux32_syscall_close   6
    #+end_src
-** format [windows32]
+** format                             :32bit:linux:
    #+begin_src fasm :tangle cicada-nymph.fasm
-   match =windows =32bit, platform machine {
-
-   format PE console as "32.exe"
-
-   }
+   format ELF executable 3
    #+end_src
-** entry  [windows32]
+** entry                              :32bit:linux:
    #+begin_src fasm :tangle cicada-nymph.fasm
-   match =windows =32bit, platform machine {
-
    entry begin_to_interpret_threaded_code
-   section '.text' code writeable readable executable
-
-   }
+   segment readable executable writeable
    #+end_src
-** ----------------------------------
 ** memory allocation in un_initialized_memory
    * implemented as a memory map
    #+begin_src fasm :tangle cicada-nymph.fasm
@@ -101,7 +71,6 @@
    labeling  equ = current_free_address$un_initialized_memory
    preserve  equ current_free_address$un_initialized_memory = current_free_address$un_initialized_memory +
    #+end_src
-** ----------------------------------
 * -----------------------------------
 * note stack
   * when doing "push"
@@ -114,8 +83,7 @@
   * note that another style is that
     under the stack-pointer
     there always stores the value of the-top-of-the-stack
-* argument_stack
-** ----------------------------------
+* argument-stack
 ** memory allocation
    * for we do not build border-check
      into the interface of pop and push
@@ -125,49 +93,33 @@
    address$argument_stack labeling
       preserve 1024 * 1024 * cell_size
    #+end_src
-** ----------------------------------
-** pointer    [64bit]
-   #+begin_src fasm :tangle cicada-nymph.fasm
-   match =64bit, machine {
-
+** pointer                            :64bit:
+   #+begin_src fasm
    ;; if you want to extend cicada in assembly
    ;; the following registers must NOT be used
 
    define pointer$argument_stack r15
-
-   }
    #+end_src
-** push & pop [64bit]
-   #+begin_src fasm :tangle cicada-nymph.fasm
-   match =64bit, machine {
-
-   macro push_argument_stack register \{
+** push & pop                         :64bit:
+   #+begin_src fasm
+   macro push_argument_stack register {
       mov [pointer$argument_stack], register
       add pointer$argument_stack, cell_size
-   \}
+   }
 
-   macro pop_argument_stack register \{
+   macro pop_argument_stack register {
       sub pointer$argument_stack, cell_size
       mov register, [pointer$argument_stack]
-   \}
-
    }
    #+end_src
-** ----------------------------------
-** pointer    [32bit]
+** pointer                            :32bit:
    #+begin_src fasm :tangle cicada-nymph.fasm
-   match =32bit, machine {
-
    pointer$argument_stack:
       xx address$argument_stack
-
-   }
    #+end_src
-** push & pop [32bit]
+** push & pop                         :32bit:
    #+begin_src fasm :tangle cicada-nymph.fasm
-   match =32bit, machine {
-
-   macro push_argument_stack register \{
+   macro push_argument_stack register {
       if register in <eax>
       push ebx
       mov ebx, [pointer$argument_stack]
@@ -183,9 +135,9 @@
       mov [pointer$argument_stack], eax
       pop eax
       finish if
-   \}
+   }
 
-   macro pop_argument_stack register \{
+   macro pop_argument_stack register {
       if register in <eax>
       push ebx
       mov ebx, [pointer$argument_stack]
@@ -201,62 +153,42 @@
       mov [pointer$argument_stack], eax
       pop eax
       finish if
-   \}
-
    }
    #+end_src
-** ----------------------------------
-* return_stack
-** ----------------------------------
+* return-stack
 ** memory allocation
    #+begin_src fasm :tangle cicada-nymph.fasm
       preserve 64 * cell_size
    address$return_stack labeling
       preserve 1024 * 1024 * cell_size
    #+end_src
-** ----------------------------------
-** pointer    [64bit]
-   #+begin_src fasm :tangle cicada-nymph.fasm
-   match =64bit, machine {
-
+** pointer                            :64bit:
+   #+begin_src fasm
    ;; if you want to extend cicada in assembly
    ;; the following registers must NOT be used
 
    define pointer$return_stack r14
-
-   }
    #+end_src
-** push & pop [64bit]
-   #+begin_src fasm :tangle cicada-nymph.fasm
-   match =64bit, machine {
-
-   macro push_return_stack register \{
+** push & pop                         :64bit:
+   #+begin_src fasm
+   macro push_return_stack register {
       mov [pointer$return_stack], register
       add pointer$return_stack, cell_size
-   \}
+   }
 
-   macro pop_return_stack register \{
+   macro pop_return_stack register {
       sub pointer$return_stack, cell_size
       mov register, [pointer$return_stack]
-   \}
-
    }
    #+end_src
-** ----------------------------------
-** pointer    [32bit]
+** pointer                            :32bit:
    #+begin_src fasm :tangle cicada-nymph.fasm
-   match =32bit, machine {
-
    pointer$return_stack:
       xx address$return_stack
-
-   }
    #+end_src
-** push & pop [32bit]
+** push & pop                         :32bit:
    #+begin_src fasm :tangle cicada-nymph.fasm
-   match =32bit, machine {
-
-   macro push_return_stack register \{
+   macro push_return_stack register {
       if register in <eax>
       push ebx
       mov ebx, [pointer$return_stack]
@@ -272,51 +204,34 @@
       mov [pointer$return_stack], eax
       pop eax
       finish if
-   \}
+   }
 
-   macro pop_return_stack register \{
+   macro pop_return_stack register {
       if register in <eax>
+      push ebx
       mov ebx, [pointer$return_stack]
       sub ebx, cell_size
       mov register, [ebx]
       mov [pointer$return_stack], ebx
+      pop ebx
       else
+      push eax
       mov eax, [pointer$return_stack]
       sub eax, cell_size
       mov register, [eax]
       mov [pointer$return_stack], eax
+      pop eax
       finish if
-   \}
-
    }
    #+end_src
-** ----------------------------------
-* -----------------------------------
 * next
   #+begin_src fasm :tangle cicada-nymph.fasm
-  match =64bit, machine {
-
-  macro next \{
-     pop_return_stack rbx
-       mov rax, [rbx]
-     add rbx, cell_size
-     push_return_stack rbx
-       jmp qword [rax]
-  \}
-
-  }
-
-
-  match =32bit, machine {
-
-  macro next \{
+  macro next {
      pop_return_stack rbx
        mov rax, [rbx]
      add rbx, cell_size
      push_return_stack rbx
        jmp dword [rax]
-  \}
-
   }
   #+end_src
 * note play with jo & jojo
@@ -413,45 +328,15 @@
   11. it is really simple
       ^-^
       is it not ?
-* -----------------------------------
 * helper function in assembly code
-** ----------------------------------
-** __exit_with_tos  [windows32]
+** __exit_with_tos                    :linux:
    #+begin_src fasm :tangle cicada-nymph.fasm
-   match =windows =32bit, platform machine {
-
    __exit_with_tos:
-
-      pop_argument_stack rax
-      push rax
-      call [ExitProcess]
-
-   }
+      ;; << exit-code -- >>
+      pop_argument_stack linux32_sys_1_ebx
+      mov linux32_sys_n_eax, linux32_syscall_exit
+      syscall
    #+end_src
-** __exit_with_zero [windows32]
-   #+begin_src fasm :tangle cicada-nymph.fasm
-   match =windows =32bit, platform machine {
-
-   __exit_with_zero:
-
-      push 0
-      call [ExitProcess]
-
-   }
-   #+end_src
-** __exit_with_six  [windows32]
-   #+begin_src fasm :tangle cicada-nymph.fasm
-   match =windows =32bit, platform machine {
-
-   __exit_with_six:
-
-      push 6
-      call [ExitProcess]
-
-   }
-   #+end_src
-** ----------------------------------
-* -----------------------------------
 * macro for jo & explainer
 ** ----------------------------------
 ** link
@@ -614,7 +499,6 @@
       next
    #+end_src
 ** ----------------------------------
-* -----------------------------------
 * end & tail_call
 ** end
    #+begin_src fasm :tangle cicada-nymph.fasm
@@ -625,23 +509,10 @@
 ** tail_call
    * tail-call
    #+begin_src fasm :tangle cicada-nymph.fasm
-   match =64bit, machine {
-
-   define_primitive_function "tail-call", tail_call
-      pop_return_stack rbx
-      mov rax, [rbx]
-      jmp qword [rax]
-   }
-
-
-   match =32bit, machine {
-
    define_primitive_function "tail-call", tail_call
       pop_return_stack rbx
       mov rax, [rbx]
       jmp dword [rax]
-
-   }
    #+end_src
 ** note explicit tail call in action
    1. the tail position of a function body must be recognized
@@ -697,41 +568,21 @@
       is the same as (5.)
       it is clear how the example function
       is actually a loop now
-* -----------------------------------
 * *the story begin*
-** begin_to_interpret_threaded_code [windows32]
+** begin_to_interpret_threaded_code   :32bit:linux:
    #+begin_src fasm :tangle cicada-nymph.fasm
-   match =windows =32bit, platform machine {
-
-   _output_handle:
-      xx 0
-   _input_handle:
-      xx 0
-
    begin_to_interpret_threaded_code:
 
       cld ;; set DF = 0, then rsi and rdi are incremented
-
-      push STD_INPUT_HANDLE
-      call [GetStdHandle]
-      mov [_input_handle], rax
-
-      push STD_OUTPUT_HANDLE
-      call [GetStdHandle]
-      mov [_output_handle], rax
 
       mov rax, first_jojo
       push_return_stack rax
       next
 
-   }
-   #+end_src
-** first_jojo
-   * you can use the following "xx little_test"
-     to do some little tests
-   #+begin_src fasm :tangle cicada-nymph.fasm
+
    first_jojo:
       xx little_test
+      xx end
    #+end_src
 ** exit_with_tos a.k.a. bye
    #+begin_src fasm :tangle cicada-nymph.fasm
@@ -749,11 +600,11 @@
       ;;;; variable
       ;; xx V__little_test_number
       ;; xx exit_with_tos
-      ;;;; exit ocde : 3
+      ;;;; 3
 
       ;;;; literal
-      xx literal, 4
-      xx exit_with_tos
+      ;; xx literal, 4
+      ;; xx exit_with_tos
       ;;;; exit ocde : 4
 
       ;;;; address
@@ -764,12 +615,29 @@
       ;;;; exit ocde : 5
 
       ;;;; tail_call
-      ;; xx literal, 2
-      ;; xx literal, 4
-      ;; xx power
-      ;; xx exit_with_tos
+      xx literal, 2
+      xx literal, 4
+      xx power
+      xx exit_with_tos
       ;;;; exit ocde : 16
    #+end_src
+** note
+   * next
+     #+begin_src return-stack
+     - [ (little_test) ]
+         (end)
+     #+end_src
+   * next
+     #+begin_src return-stack
+         (little_test)
+     - [ (end) ] -------- [ (V__little_test_number) ]
+                            (exit_with_tos)
+     #+end_src
+   * next
+     #+begin_src return-stack
+         (little_test)      (V__little_test_number)
+     - [ (end) ] -------- [ (exit_with_tos) ]
+     #+end_src
 * -----------------------------------
 * the stack
 ** ----------------------------------
@@ -786,10 +654,8 @@
       pop_argument_stack rax
       next
    #+end_src
-** dup  [32bit]
+** dup                                :32bit:
    #+begin_src fasm :tangle cicada-nymph.fasm
-   match =32bit, machine {
-
    define_primitive_function "dup", dup
       ;; << a -- a a >>
       pop_argument_stack rax
@@ -806,13 +672,9 @@
       push_argument_stack rax
       push_argument_stack rbx
       next
-
-   }
    #+end_src
-** over [32bit]
+** over                               :32bit:
    #+begin_src fasm :tangle cicada-nymph.fasm
-   match =32bit, machine {
-
    define_primitive_function "over", over
       ;; << a b -- a b | a >>
       mov rbx, [pointer$argument_stack]
@@ -860,8 +722,6 @@
       mov rax, [rbx - (5 * cell_size)]
       push_argument_stack rax
       next
-
-   }
    #+end_src
 ** tuck
    #+begin_src fasm :tangle cicada-nymph.fasm
@@ -924,10 +784,8 @@
       push_argument_stack rdx
       next
    #+end_src
-** swap [32bit]
+** swap                               :32bit:
    #+begin_src fasm :tangle cicada-nymph.fasm
-   match =32bit, machine {
-
    define_primitive_function "swap", swap
       ;; << a b -- b a >>
       pop_argument_stack ebx
@@ -1081,8 +939,6 @@
       push_argument_stack ecx
       push_argument_stack edx
       next
-
-   }
    #+end_src
 ** ----------------------------------
 * instruction
@@ -1204,10 +1060,8 @@
       xx true, equal?
       xx end
    #+end_src
-** bitwise operations [32bit]
+** bitwise operations                 :32bit:
    #+begin_src fasm :tangle cicada-nymph.fasm
-   match =32bit, machine {
-
    define_primitive_function "bitwise-and", bitwise_and
       ;; << a, b -- a and b >>
       pop_argument_stack rbx
@@ -1234,8 +1088,6 @@
       mov rax, [pointer$argument_stack]
       not dword [rax - (1 * cell_size)]
       next
-
-   }
    #+end_src
 * fixnum
 ** ----------------------------------
@@ -1269,10 +1121,8 @@
       xx end
    #+end_src
 ** ----------------------------------
-** add & sub [32bit]
+** add & sub                          :32bit:
    #+begin_src fasm :tangle cicada-nymph.fasm
-   match =32bit, machine {
-
    define_primitive_function "add1", add1
       ;; << n -- n+1 >>
       pop_argument_stack rax
@@ -1372,8 +1222,6 @@
       sub rax, rbx
       push_argument_stack rax
       next
-
-   }
    #+end_src
 ** mul
    #+begin_src fasm :tangle cicada-nymph.fasm
@@ -1516,10 +1364,8 @@
 ** note
    * although the following functions are all side-effect
      but I use "save" instead of "save!"
-** save  [32bit]
+** save                               :32bit:
    #+begin_src fasm :tangle cicada-nymph.fasm
-   match =32bit, machine {
-
    ;; "save" and "fetch" default to a cell_size
    ;; the rule of "fetch2" and so on are:
    ;;   in memory:
@@ -1610,13 +1456,9 @@
       pop_argument_stack rax
       sub dword [rbx], rax
       next
-
-   }
    #+end_src
-** fetch [32bit]
+** fetch                              :32bit:
    #+begin_src fasm :tangle cicada-nymph.fasm
-   match =32bit, machine {
-
    define_primitive_function "fetch", fetch
       ;; ( address -- value )
       pop_argument_stack  rbx
@@ -1680,129 +1522,15 @@
       xx literal, 2
       xx n_fetch
       xx end
-
-   }
    #+end_src
 * -----------------------------------
 * epilog
-** ----------------------------------
-** *un-initialized-memory*
+** un_initialized_memory              :linux:
    #+begin_src fasm :tangle cicada-nymph.fasm
-   define_variable "*un-initialized-memory*", V__un_initialized_memory
-     xx address$un_initialized_memory
+   size$un_initialized_memory = 16 * 1024 * 1024 ;; (byte)
 
-   define_variable "*size,un-initialized-memory*", V__size__un_initialized_memory
-     xx size$un_initialized_memory
-
-   define_variable "*current-free-address,un-initialized-memory*", V__current_free_address__un_initialized_memory
-     xx current_free_address$un_initialized_memory
-   #+end_src
-** ----------------------------------
-** un_initialized_memory [windows32]
-   #+begin_src fasm :tangle cicada-nymph.fasm
-   match =windows =32bit, platform machine {
-
-   size$un_initialized_memory = 64 * 1024 * 1024 ;; (byte)
-
-   section '.data' data readable writeable
+   segment readable writeable
    address$un_initialized_memory:
       rb size$un_initialized_memory
-
-   }
    #+end_src
-** macro about import    [windows32]
-   #+begin_src fasm :tangle cicada-nymph.fasm
-   if platform eq windows
-   if machine eq 32bit
-
-   ; Macroinstructions for making import section
-
-   macro library [name,string] {
-      common
-       import.data:
-      forward
-       local _label
-       if defined name#.redundant
-        if ~ name#.redundant
-         dd RVA name#.lookup,0,0,RVA _label,RVA name#.address
-        finish if
-       finish if
-       name#.referred = 1
-      common
-       dd 0,0,0,0,0
-      forward
-       if defined name#.redundant
-        if ~ name#.redundant
-         _label db string,0
-                rb RVA $ and 1
-        finish if
-       finish if
-   }
-
-   macro import name,[label,string]
-    { common
-       rb (- rva $) and 3
-       if defined name#.referred
-        name#.lookup:
-      forward
-        if used label
-         if string eqtype ''
-          local _label
-          dd RVA _label
-         else
-          dd 80000000h + string
-         finish if
-        finish if
-      common
-        if $ > name#.lookup
-         name#.redundant = 0
-         dd 0
-        else
-         name#.redundant = 1
-        finish if
-        name#.address:
-      forward
-        if used label
-         if string eqtype ''
-          label dd RVA _label
-         else
-          label dd 80000000h + string
-         finish if
-        finish if
-      common
-        if ~ name#.redundant
-         dd 0
-        finish if
-      forward
-        if used label & string eqtype ''
-        _label dw 0
-               db string,0
-               rb RVA $ and 1
-        finish if
-      common
-       finish if
-   }
-
-   finish if
-   finish if
-   #+end_src
-** section about import  [windows32]
-   #+begin_src fasm :tangle cicada-nymph.fasm
-   match =windows =32bit, platform machine {
-
-   section '.idata' import data readable writeable
-
-   library kernel32,'KERNEL32.DLL'
-
-   import kernel32,\
-          ExitProcess,'ExitProcess',\
-          ReadFile,'ReadFile',\
-          WriteFile,'WriteFile',\
-          GetStdHandle,'GetStdHandle',\
-          CloseHandle, 'CloseHandle',\
-          CreateFileA, 'CreateFileA'
-
-   }
-   #+end_src
-** ----------------------------------
 * ===================================
