@@ -146,12 +146,12 @@ __exit_with_tos:
 ;; initial link to point to 0 (as null)
 link = 0
 
-size$primitive_string_heap = 100 * 1024 ;; (byte)
+size$string_area = 100 * 1024 ;; (byte)
 
-address$primitive_string_heap:
-   times size$primitive_string_heap db 0
+address$string_area:
+   times size$string_area db 0
 
-current_free_address$primitive_string_heap = address$primitive_string_heap
+current_free_address$string_area = address$string_area
 
 macro make_primitive_string string {
 
@@ -162,17 +162,17 @@ virtual at 0
    dw (.end$string - .start$string)
    load .length word from (.end$string)
 finish virtual
-store word .length at (current_free_address$primitive_string_heap)
+store word .length at (current_free_address$string_area)
 
-current_free_address$primitive_string_heap = current_free_address$primitive_string_heap + 2
+current_free_address$string_area = current_free_address$string_area + 2
 
 repeat .length
    virtual at 0
       db string
       load .char byte from (% - 1)
    finish virtual
-   store byte .char at (current_free_address$primitive_string_heap)
-   current_free_address$primitive_string_heap = current_free_address$primitive_string_heap + 1
+   store byte .char at (current_free_address$string_area)
+   current_free_address$string_area = current_free_address$string_area + 1
 finish repeat
 
 }
@@ -182,7 +182,7 @@ macro define_function string, jo {
 define_function__#jo:
 
 name__#jo:
-   xx current_free_address$primitive_string_heap
+   xx current_free_address$string_area
 
    make_primitive_string string
 
@@ -207,7 +207,7 @@ macro define_primitive_function string, jo {
 define_primitive_function__#jo:
 
 name__#jo:
-   xx current_free_address$primitive_string_heap
+   xx current_free_address$string_area
 
    make_primitive_string string
 
@@ -230,7 +230,7 @@ macro define_variable string, jo {
 define_variable__#jo:
 
 name__#jo:
-   xx current_free_address$primitive_string_heap
+   xx current_free_address$string_area
 
    make_primitive_string string
 
@@ -309,10 +309,10 @@ define_function "little_test", little_test
 
 
    ;;;; write_byte
-   xx literal, 64, write_byte
-   xx literal, 10, write_byte
-   xx zero
-   xx exit_with_tos
+   ;; xx literal, 64, write_byte
+   ;; xx literal, 10, write_byte
+   ;; xx zero
+   ;; xx exit_with_tos
    ;;;; @
 
    ;;;; read_byte
@@ -321,8 +321,8 @@ define_function "little_test", little_test
    ;;;;
 
    ;;;; branch
-   ;; xx read_byte, write_byte
-   ;; xx branch, -3
+   xx read_byte, write_byte
+   xx branch, -3
    ;;;; read a string that ended by <return>
    ;;;; write the readed string
    ;;;; or we can say
@@ -1405,290 +1405,3 @@ define_function "integer-string?", integer_string?
    xx   end
    xx digit_string?
    xx end
-
-sum$digit_string_to_number:
-   xx 0
-
-counter$digit_string_to_number:
-   xx 0
-
-define_function "digit-string->number", digit_string_to_number
-   ;; << string[address, length] -- integer >>
-   xx zero, literal, sum$digit_string_to_number, set
-   xx zero, literal, counter$digit_string_to_number, set
-
-   xx dup2, string_reverse!
-   xx   help__digit_string_to_number
-   xx string_reverse!, drop2
-
-   xx literal, sum$digit_string_to_number
-   xx get
-   xx end
-
-define_function "help,digit-string->number", help__digit_string_to_number
-   ;; << reversed-string[address, length] -- >>
-   xx dup, zero?, false?branch, 3
-   xx   drop2
-   xx   end
-
-   xx dup2, string__byte, digit_byte_to_number
-   xx   literal, 10
-   xx   literal, counter$digit_string_to_number, get
-   xx     one
-   xx     literal, counter$digit_string_to_number
-   xx     add_set
-   xx   power
-   xx multiple
-
-   xx literal, sum$digit_string_to_number
-   xx add_set
-
-   xx string__byte_tail
-   xx tail_call, help__digit_string_to_number
-
-define_function "string->integer", string_to_integer
-   ;; << string[address, length] -- integer >>
-   xx dup2, string__byte, literal, '-', equal?, false?, false?branch, 3
-   xx   digit_string_to_number
-   xx   end
-   xx string__byte_tail
-   xx digit_string_to_number
-   xx negate
-   xx end
-
-define_function "string,find-byte", string__find_byte
-  ;; << string[address, length], byte
-  ;;    -- address, true
-  ;;    -- false >>
-  xx over, zero?, false?branch, 5
-  xx   drop, drop2
-  xx   false
-  xx   end
-  xx xoverxx, get_byte
-  xx over, equal?, false?branch, 4
-  xx   drop2
-  xx   true
-  xx   end
-  xx xxswapx
-  xx string__byte_tail
-  xx xswapxx
-  xx tail_call, string__find_byte
-
-define_function "string-end,byte", string_end__byte
-   ;; << string[address, length] -- byte >>
-   xx addition, sub1, get_byte
-   xx end
-
-define_function "space-string?", space_string?
-   ;; << string[address, length] -- bool >>
-   xx dup, zero?, false?branch, 4
-   xx   drop2, true
-   xx   end
-   xx dup2, string__byte, space_byte?, false?branch, 4
-   xx   string__byte_tail
-   xx   tail_call, space_string?
-   xx drop2, false
-   xx end
-
-define_function "string,word-begin", string__word_begin
-   ;; << string[address, length] -- string[address, length] >>
-   xx dup, zero?, false?branch, 2
-   ;;   no error handling
-   ;;   the same empty-string is returned
-   xx   end
-   xx dup2
-   xx string__byte, space_byte?, false?, false?branch, 2
-   xx   end
-   xx string__byte_tail
-   xx tail_call, string__word_begin
-
-define_function "string,word-end,loop", string__word_end__loop
-   ;; << string[address, length] -- string[address, length] >>
-   xx dup, zero?, false?branch, 2
-   ;;   no error handling
-   ;;   the current empty-string is returned
-   xx   end
-   xx dup2
-   xx string__byte, space_byte?, false?branch, 2
-   xx   end
-   xx dup2
-   xx string__byte, bar_ket_byte?, false?branch, 2
-   xx   end
-   xx string__byte_tail
-   xx tail_call, string__word_end__loop
-
-define_function "string,word-end", string__word_end
-   ;; << string[address, length] -- string[address, length] >>
-   xx dup, zero?, false?branch, 2
-   ;;   no error handling
-   ;;   the same empty-string is returned
-   xx   end
-   xx dup2
-   xx string__byte, bar_ket_byte?, false?branch, 3
-   xx   string__byte_tail
-   xx   end
-   xx string__word_end__loop
-   xx end
-
-define_function "string,word", string__word
-   ;; << string[address, length] -- word[address, length] >>
-   xx string__word_begin
-   xx dup2, string__word_end
-   xx swap, drop
-   xx subtraction
-   xx end
-
-define_function "string,word-tail", string__word_tail
-   ;; << string[address, length] -- string[address, length] >>
-   xx string__word_begin
-   xx string__word_end
-   xx end
-
-buffer$write_byte:
-   db 0
-
-define_primitive_function "write-byte", write_byte
-   ;; << byte -- >>
-   ;; just calls the Linux write system call
-   pop_argument_stack rax
-   ;; write can not just write the byte in al to stdout
-   ;; write needs the address of the byte to write
-   mov [buffer$write_byte], al
-   mov linux32_sys_3_edx, 1                 ;; max length to be write
-   mov linux32_sys_2_ecx, buffer$write_byte ;; address
-   mov linux32_sys_1_ebx, 1                 ;; stdout
-   mov linux32_sys_n_eax, linux32_syscall_write
-   syscall
-   next
-
-size$reading_stack = 1024 * cell_size
-
-   preserve 64 * cell_size
-address$reading_stack labeling
-   preserve size$reading_stack
-
-define_variable "*reading-stack,pointer*", V__reading_stack__pointer
-   xx address$reading_stack
-
-define_primitive_function "push-reading-stack", push_reading_stack
-   ;; << string[address, length] -- >>
-   pop_argument_stack rax
-   mov rsi, [V__reading_stack__pointer + cell_size]
-   mov [rsi], rax
-   add dword [V__reading_stack__pointer + cell_size], cell_size
-   pop_argument_stack rax
-   mov rsi, [V__reading_stack__pointer + cell_size]
-   mov [rsi], rax
-   add dword [V__reading_stack__pointer + cell_size], cell_size
-   next
-
-define_primitive_function "pop-reading-stack", pop_reading_stack
-   ;; << -- string[address, length] >>
-   sub dword [V__reading_stack__pointer + cell_size], cell_size
-   mov rsi, [V__reading_stack__pointer + cell_size]
-   mov rax, [rsi]
-   push_argument_stack rax
-   sub dword [V__reading_stack__pointer + cell_size], cell_size
-   mov rsi, [V__reading_stack__pointer + cell_size]
-   mov rax, [rsi]
-   push_argument_stack rax
-   next
-
-define_primitive_function "drop-reading-stack", drop_reading_stack
-   ;; << -- >>
-   sub dword [V__reading_stack__pointer + cell_size], (cell_size * 2)
-   next
-
-define_primitive_function "tos-reading-stack", tos_reading_stack
-   ;; << -- string[address, length] >>
-   mov rbx, [V__reading_stack__pointer + cell_size]
-   sub rbx, cell_size
-   mov rax, [rbx]
-   push_argument_stack rax
-   mov rbx, [V__reading_stack__pointer + cell_size]
-   sub rbx, cell_size
-   sub rbx, cell_size
-   mov rax, [rbx]
-   push_argument_stack rax
-   next
-
-define_function "reading-stack-empty?", reading_stack_empty?
-   ;; << -- bool >>
-   xx literal, V__reading_stack__pointer + cell_size, get
-   xx literal, address$reading_stack
-   xx equal?
-   xx end
-
-define_primitive_function "read-line-from-stdin", read_line_from_stdin
-   ;; << buffer address, max length -- counter >>
-   pop_argument_stack linux32_sys_3_edx
-   pop_argument_stack linux32_sys_2_ecx
-   xor linux32_sys_1_ebx, linux32_sys_1_ebx ;; stdin
-   mov linux32_sys_n_eax, linux32_syscall_read
-   syscall
-   ;; the return value
-   ;; is a count of the number of bytes transferred
-   push_argument_stack rax
-   next
-
-max_input_length = 64 * 1024
-
-buffer$reading labeling
-   preserve max_input_length
-
-replace$reading labeling
-   preserve 1024
-
-define_function "read-byte", read_byte
-   ;; << -- byte >>
-   xx pop_reading_stack
-   xx dup2, empty_string?, CICADA__not, false?branch, (.bad_tos-$)/cell_size
-   xx   sub1, swap
-   xx   tuck
-   xx   add1, swap
-   xx   push_reading_stack
-   xx   get_byte
-   xx   end
-.bad_tos:
-   xx reading_stack_empty?, false?branch, (.not_empty-$)/cell_size
-   xx   drop2
-   xx   literal, buffer$reading
-   xx   literal, max_input_length
-   xx   read_line_from_stdin
-   xx   dup, positive?, false?branch, (.read_error-$)/cell_size
-   xx     literal, buffer$reading
-   xx     swap
-   xx     push_reading_stack
-   xx     tail_call, read_byte
-.read_error:
-   ;;   ignore <end-of-file>
-   ;;   ignore reading error
-   xx   drop
-   xx   literal, buffer$reading
-   xx   literal, 0
-   xx   push_reading_stack
-   xx   tail_call, read_byte
-.not_empty:
-   xx   literal, error$read_byte
-   xx   literal, length$read_byte
-   xx   write_string
-   xx   literal, replace$reading
-   xx   literal, 1024
-   xx   read_line_from_stdin
-   xx   literal, replace$reading
-   xx   swap
-   xx   push_reading_stack
-   xx   tail_call, read_byte
-
-error$read_byte:
-   db "* (read-byte) meets empty-string in reading-stack", 10
-   db "  and this empty-stack is not at the bottom of the reading-stack", 10
-   db "  you can type a line to replace this empty string", 10
-.end:
-length$read_byte = (.end - error$read_byte)
-
-size$un_initialized_memory = 16 * 1024 * 1024 ;; (byte)
-
-segment readable writeable
-address$un_initialized_memory:
-   rb size$un_initialized_memory

@@ -345,15 +345,15 @@
    link = 0
    #+end_src
 ** ----------------------------------
-** note primitive_string_heap
+** note string_area
 ** memory allocation
    #+begin_src fasm :tangle cicada-nymph.fasm
-   size$primitive_string_heap = 100 * 1024 ;; (byte)
+   size$string_area = 100 * 1024 ;; (byte)
 
-   address$primitive_string_heap:
-      times size$primitive_string_heap db 0
+   address$string_area:
+      times size$string_area db 0
 
-   current_free_address$primitive_string_heap = address$primitive_string_heap
+   current_free_address$string_area = address$string_area
    #+end_src
 ** make_primitive_string
    * 2 bytes for length of name_string
@@ -369,17 +369,17 @@
       dw (.end$string - .start$string)
       load .length word from (.end$string)
    finish virtual
-   store word .length at (current_free_address$primitive_string_heap)
+   store word .length at (current_free_address$string_area)
 
-   current_free_address$primitive_string_heap = current_free_address$primitive_string_heap + 2
+   current_free_address$string_area = current_free_address$string_area + 2
 
    repeat .length
       virtual at 0
          db string
          load .char byte from (% - 1)
       finish virtual
-      store byte .char at (current_free_address$primitive_string_heap)
-      current_free_address$primitive_string_heap = current_free_address$primitive_string_heap + 1
+      store byte .char at (current_free_address$string_area)
+      current_free_address$string_area = current_free_address$string_area + 1
    finish repeat
 
    }
@@ -402,7 +402,7 @@
    define_function__#jo:
 
    name__#jo:
-      xx current_free_address$primitive_string_heap
+      xx current_free_address$string_area
 
       make_primitive_string string
 
@@ -441,7 +441,7 @@
    define_primitive_function__#jo:
 
    name__#jo:
-      xx current_free_address$primitive_string_heap
+      xx current_free_address$string_area
 
       make_primitive_string string
 
@@ -474,7 +474,7 @@
    define_variable__#jo:
 
    name__#jo:
-      xx current_free_address$primitive_string_heap
+      xx current_free_address$string_area
 
       make_primitive_string string
 
