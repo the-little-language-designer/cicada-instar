@@ -294,8 +294,8 @@ define_function "little_test", little_test
    ;;;; exit ocde : 4
 
    ;;;; address
-   ;; xx address, V__little_test_number, fetch, add2
-   ;; xx address, V__little_test_number, save
+   ;; xx address, V__little_test_number, get, add2
+   ;; xx address, V__little_test_number, set
    ;; xx V__little_test_number
    ;; xx exit_with_tos
    ;;;; exit ocde : 5
@@ -677,6 +677,45 @@ define_function "true?", true?
    xx true, equal?
    xx end
 
+define_function "not", CICADA__not
+   ;; << bool -- bool >>
+   xx false, equal?
+   xx end
+
+define_function "and", CICADA__and
+   ;; << bool, bool -- bool >>
+   xx false?, false?branch, (.true-$)/cell_size
+   xx   drop
+   xx   false
+   xx   end
+.true:
+   xx false?branch, 3
+   xx   true
+   xx   end
+   xx false
+   xx end
+
+define_function "or", CICADA__or
+   ;; << bool, bool -- bool >>
+   xx false?branch, (.false-$)/cell_size
+   xx   drop
+   xx   true
+   xx   end
+.false:
+   xx false?branch, 3
+   xx   true
+   xx   end
+   xx false
+   xx end
+
+define_function "xor", CICADA__xor
+   ;; << bool, bool -- bool >>
+   xx false?branch, (.false-$)/cell_size
+   xx   CICADA__not
+   xx   end
+.false:
+   xx end
+
 define_primitive_function "bitwise-and", bitwise_and
    ;; << a, b -- a and b >>
    pop_argument_stack rbx
@@ -834,7 +873,7 @@ define_primitive_function "mul", multiple
    imul rbx, rax
    ;; imul will ignore overflow
    ;; when there are two registers as arg
-   ;; imul will save the result into the first register
+   ;; imul will set the result into the first register
    push_argument_stack rbx
    next
 
@@ -950,8 +989,18 @@ define_function "positive?", positive?
    xx negative?, false?
    xx end
 
-;; "save" and "fetch" default to a cell_size
-;; the rule of "fetch2" and so on are:
+define_function "within?", within?
+   ;; << x, a, b -- bool >>
+   xx xoverxx
+   xx greater_or_equal?, CICADA__not, false?branch, 4
+   xx   drop2
+   xx   false
+   xx   end
+   xx greater_or_equal?
+   xx end
+
+;; "set" and "get" default to a cell_size
+;; the rule of "get2" and so on are:
 ;;   in memory:
 ;;     ||  1 : value-1  ||
 ;;     ||  1 : value-2  ||
@@ -960,38 +1009,38 @@ define_function "positive?", positive?
 ;;   on stack:
 ;;     << value-1, value-2, value-3, ... >>
 ;; of course we have:
-;;   fetch2 : memory=copy=>stack
-;;   save2  : stack->memory
+;;   get2 : memory=copy=>stack
+;;   set2  : stack->memory
 
-define_primitive_function "save", save
+define_primitive_function "set", set
    ;; ( value, address -- )
    pop_argument_stack rbx
    pop_argument_stack rax
    mov [rbx], rax
    next
 
-define_primitive_function "save-byte", save_byte
+define_primitive_function "set-byte", set_byte
    ;; ( value, address -- )
    pop_argument_stack rbx
    pop_argument_stack rax
    mov byte[rbx], al
    next
 
-define_primitive_function "save-two-bytes", save_two_bytes
+define_primitive_function "set-two-bytes", set_two_bytes
    ;; ( value, address -- )
    pop_argument_stack rbx
    pop_argument_stack rax
    mov word [rbx], ax
    next
 
-define_primitive_function "save-four-bytes", save_four_bytes
+define_primitive_function "set-four-bytes", set_four_bytes
    ;; ( value, address -- )
    pop_argument_stack rbx
    pop_argument_stack rax
    mov dword [rbx], eax
    next
 
-define_primitive_function "n-save", n_save
+define_primitive_function "n-set", n_set
    ;; << value-n, ..., value-1, address, n -- >>
    pop_argument_stack rcx
    pop_argument_stack rdx
@@ -1008,13 +1057,13 @@ define_primitive_function "n-save", n_save
    loop .loop
    next
 
-define_function "save2", save2
+define_function "set2", set2
    ;; << value-2, value-1, address -- >>
    xx literal, 2
-   xx n_save
+   xx n_set
    xx end
 
-define_primitive_function "n-save-byte", n_save_byte
+define_primitive_function "n-set-byte", n_set_byte
    ;; << value-n, ..., value-1, address, n -- >>
    pop_argument_stack rcx
    pop_argument_stack rdx
@@ -1027,28 +1076,28 @@ define_primitive_function "n-save-byte", n_save_byte
    loop .loop
    next
 
-define_primitive_function "add-save", add_save
+define_primitive_function "add-set", add_set
    ;; ( number to add, address -- )
    pop_argument_stack rbx
    pop_argument_stack rax
    add dword [rbx], rax
    next
 
-define_primitive_function "sub-save", sub_save
+define_primitive_function "sub-set", sub_set
    ;; ( number to add, address -- )
    pop_argument_stack rbx
    pop_argument_stack rax
    sub dword [rbx], rax
    next
 
-define_primitive_function "fetch", fetch
+define_primitive_function "get", get
    ;; ( address -- value )
    pop_argument_stack  rbx
    mov rax, [rbx]
    push_argument_stack rax
    next
 
-define_primitive_function "fetch-byte", fetch_byte
+define_primitive_function "get-byte", get_byte
    ;; ( address -- value )
    pop_argument_stack rbx
    xor rax, rax
@@ -1056,7 +1105,7 @@ define_primitive_function "fetch-byte", fetch_byte
    push_argument_stack rax
    next
 
-define_primitive_function "fetch-two-bytes", fetch_two_bytes
+define_primitive_function "get-two-bytes", get_two_bytes
    ;; ( address -- value )
    pop_argument_stack rbx
    xor rax, rax
@@ -1064,7 +1113,7 @@ define_primitive_function "fetch-two-bytes", fetch_two_bytes
    push_argument_stack rax
    next
 
-define_primitive_function "fetch-four-bytes", fetch_four_bytes
+define_primitive_function "get-four-bytes", get_four_bytes
    ;; ( address -- value )
    pop_argument_stack rbx
    xor rax, rax
@@ -1076,7 +1125,7 @@ define_primitive_function "fetch-four-bytes", fetch_four_bytes
 ;;     ||  1 : value-1  ||
 ;;     ...
 ;;     ||  1 : value-n  ||
-define_primitive_function "n-fetch", n_fetch
+define_primitive_function "n-get", n_get
    ;; << address, n -- value-1, ..., value-n >>
    pop_argument_stack  rcx
    pop_argument_stack  rdx
@@ -1087,7 +1136,7 @@ define_primitive_function "n-fetch", n_fetch
    loop .loop
    next
 
-define_primitive_function "n-fetch-byte", n_fetch_byte
+define_primitive_function "n-get-byte", n_get_byte
    ;; << address, n -- byte-1, ..., byte-n >>
    pop_argument_stack  rcx
    pop_argument_stack  rdx
@@ -1099,10 +1148,10 @@ define_primitive_function "n-fetch-byte", n_fetch_byte
    loop .loop
    next
 
-define_function "fetch2", fetch2
+define_function "get2", get2
    ;; << address -- value-1, value-2 >>
    xx literal, 2
-   xx n_fetch
+   xx n_get
    xx end
 
 size$un_initialized_memory = 16 * 1024 * 1024 ;; (byte)

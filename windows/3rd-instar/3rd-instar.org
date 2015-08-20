@@ -45,11 +45,11 @@
    end equ exit
    #+end_src
 ** ----------------------------------
-** jo_size [32bit]
+** cell_size [32bit]
    #+begin_src fasm :tangle cicada-nymph.fasm
    match =32bit, machine {
 
-   jo_size = 4 ;; (byte)
+   cell_size = 4 ;; (byte)
    xx equ dd
 
    rax equ eax
@@ -125,9 +125,9 @@
      into the interface of pop and push
      we allocation some memory below the stacks
    #+begin_src fasm :tangle cicada-nymph.fasm
-      preserve 64 * jo_size
+      preserve 64 * cell_size
    address$argument_stack labeling
-      preserve 1024 * 1024 * jo_size
+      preserve 1024 * 1024 * cell_size
    #+end_src
 ** ----------------------------------
 ** pointer    [64bit]
@@ -147,11 +147,11 @@
 
    macro push_argument_stack register \{
       mov [pointer$argument_stack], register
-      add pointer$argument_stack, jo_size
+      add pointer$argument_stack, cell_size
    \}
 
    macro pop_argument_stack register \{
-      sub pointer$argument_stack, jo_size
+      sub pointer$argument_stack, cell_size
       mov register, [pointer$argument_stack]
    \}
 
@@ -176,14 +176,14 @@
       push ebx
       mov ebx, [pointer$argument_stack]
       mov [ebx], register
-      add ebx, jo_size
+      add ebx, cell_size
       mov [pointer$argument_stack], ebx
       pop ebx
       else
       push eax
       mov eax, [pointer$argument_stack]
       mov [eax], register
-      add eax, jo_size
+      add eax, cell_size
       mov [pointer$argument_stack], eax
       pop eax
       finish if
@@ -193,14 +193,14 @@
       if register in <eax>
       push ebx
       mov ebx, [pointer$argument_stack]
-      sub ebx, jo_size
+      sub ebx, cell_size
       mov register, [ebx]
       mov [pointer$argument_stack], ebx
       pop ebx
       else
       push eax
       mov eax, [pointer$argument_stack]
-      sub eax, jo_size
+      sub eax, cell_size
       mov register, [eax]
       mov [pointer$argument_stack], eax
       pop eax
@@ -214,9 +214,9 @@
 ** ----------------------------------
 ** memory allocation
    #+begin_src fasm :tangle cicada-nymph.fasm
-      preserve 64 * jo_size
+      preserve 64 * cell_size
    address$return_stack labeling
-      preserve 1024 * 1024 * jo_size
+      preserve 1024 * 1024 * cell_size
    #+end_src
 ** ----------------------------------
 ** pointer    [64bit]
@@ -236,11 +236,11 @@
 
    macro push_return_stack register \{
       mov [pointer$return_stack], register
-      add pointer$return_stack, jo_size
+      add pointer$return_stack, cell_size
    \}
 
    macro pop_return_stack register \{
-      sub pointer$return_stack, jo_size
+      sub pointer$return_stack, cell_size
       mov register, [pointer$return_stack]
    \}
 
@@ -265,14 +265,14 @@
       push ebx
       mov ebx, [pointer$return_stack]
       mov [ebx], register
-      add ebx, jo_size
+      add ebx, cell_size
       mov [pointer$return_stack], ebx
       pop ebx
       else
       push eax
       mov eax, [pointer$return_stack]
       mov [eax], register
-      add eax, jo_size
+      add eax, cell_size
       mov [pointer$return_stack], eax
       pop eax
       finish if
@@ -281,12 +281,12 @@
    macro pop_return_stack register \{
       if register in <eax>
       mov ebx, [pointer$return_stack]
-      sub ebx, jo_size
+      sub ebx, cell_size
       mov register, [ebx]
       mov [pointer$return_stack], ebx
       else
       mov eax, [pointer$return_stack]
-      sub eax, jo_size
+      sub eax, cell_size
       mov register, [eax]
       mov [pointer$return_stack], eax
       finish if
@@ -303,7 +303,7 @@
   macro next \{
      pop_return_stack rbx
        mov rax, [rbx]
-     add rbx, jo_size
+     add rbx, cell_size
      push_return_stack rbx
        jmp qword [rax]
   \}
@@ -316,7 +316,7 @@
   macro next \{
      pop_return_stack rbx
        mov rax, [rbx]
-     add rbx, jo_size
+     add rbx, cell_size
      push_return_stack rbx
        jmp dword [rax]
   \}
@@ -412,11 +412,11 @@
 * -----------------------------------
 * helper function in assembly code
 ** ----------------------------------
-** __exit_with_TOS  [windows32]
+** __exit_with_tos  [windows32]
    #+begin_src fasm :tangle cicada-nymph.fasm
    match =windows =32bit, platform machine {
 
-   __exit_with_TOS:
+   __exit_with_tos:
 
       pop_argument_stack rax
       push rax
@@ -536,7 +536,7 @@
      which stores a jo
    #+begin_src fasm :tangle cicada-nymph.fasm
    explain$function:
-      add rax, jo_size
+      add rax, cell_size
       push_return_stack rax
       next
    #+end_src
@@ -596,7 +596,7 @@
    jo:
       xx explain$variable
 
-      ;; here follows a value of jo_size
+      ;; here follows a value of cell_size
       ;; only one value is allowed
 
    }
@@ -604,7 +604,7 @@
 ** explain$variable
    #+begin_src fasm :tangle cicada-nymph.fasm
    explain$variable:
-      add rax, jo_size
+      add rax, cell_size
       mov rbx, [rax]
       push_argument_stack rbx
       next
@@ -732,7 +732,7 @@
 ** exit_with_TOS a.k.a. bye
    #+begin_src fasm :tangle cicada-nymph.fasm
    define_primitive_function "bye", exit_with_TOS
-      call __exit_with_TOS
+      call __exit_with_tos
    #+end_src
 ** little_test
    #+begin_src fasm :tangle cicada-nymph.fasm
@@ -849,48 +849,48 @@
    define_primitive_function "over", over
       ;; << a b -- a b | a >>
       mov rbx, [pointer$argument_stack]
-      mov rax, [rbx - (2 * jo_size)]
+      mov rax, [rbx - (2 * cell_size)]
       push_argument_stack rax
       next
 
    define_primitive_function "x|over|xx", xoverxx
       ;; << a | b c -- a | b c | a >>
       mov rbx, [pointer$argument_stack]
-      mov rax, [rbx - (3 * jo_size)]
+      mov rax, [rbx - (3 * cell_size)]
       push_argument_stack rax
       next
 
    define_primitive_function "xx|over|x", xxoverx
       ;; << a b | c -- a b | c | a b >>
       mov rbx, [pointer$argument_stack]
-      mov rax, [rbx - (3 * jo_size)]
+      mov rax, [rbx - (3 * cell_size)]
       push_argument_stack rax
-      mov rax, [rbx - (2 * jo_size)]
+      mov rax, [rbx - (2 * cell_size)]
       push_argument_stack rax
       next
 
    define_primitive_function "xx|over|xx", xxoverxx
       ;; << a b | c d -- a b | c d | a b >>
       mov rbx, [pointer$argument_stack]
-      mov rax, [rbx - (4 * jo_size)]
+      mov rax, [rbx - (4 * cell_size)]
       push_argument_stack rax
-      mov rax, [rbx - (3 * jo_size)]
+      mov rax, [rbx - (3 * cell_size)]
       push_argument_stack rax
       next
 
    define_primitive_function "x|over|xxx", xoverxxx
       ;; << a | b c d -- a | b c d | a >>
       mov rbx, [pointer$argument_stack]
-      mov rax, [rbx - (4 * jo_size)]
+      mov rax, [rbx - (4 * cell_size)]
       push_argument_stack rax
       next
 
    define_primitive_function "xx|over|xxxx", xxoverxxxx
       ;; << a b | c d e f -- a b | c d e f | a b >>
       mov rbx, [pointer$argument_stack]
-      mov rax, [rbx - (6 * jo_size)]
+      mov rax, [rbx - (6 * cell_size)]
       push_argument_stack rax
-      mov rax, [rbx - (5 * jo_size)]
+      mov rax, [rbx - (5 * cell_size)]
       push_argument_stack rax
       next
 
@@ -1149,7 +1149,7 @@
       pop_return_stack rbx
         mov rax, [rbx]
         push_argument_stack rax
-      add rbx, jo_size
+      add rbx, cell_size
       push_return_stack rbx
       next
    #+end_src
@@ -1162,9 +1162,9 @@
       ;; << -- address >>
       pop_return_stack rbx
         mov rax, [rbx]
-        add rax, jo_size
+        add rax, cell_size
         push_argument_stack rax
-      add rbx, jo_size
+      add rbx, cell_size
       push_return_stack rbx
       next
    #+end_src
@@ -1177,7 +1177,7 @@
    define_primitive_function "", branch
       pop_return_stack rbx
       mov rax, [rbx]
-      imul rax, jo_size
+      imul rax, cell_size
       add rbx, rax
       push_return_stack rbx
       next
@@ -1195,14 +1195,14 @@
 
       pop_return_stack rbx
       mov rax, [rbx]
-      imul rax, jo_size
+      imul rax, cell_size
       add rbx, rax
       push_return_stack rbx
       next
 
    help__false?branch__not_to_branch:
       pop_return_stack rbx
-      add rbx, jo_size
+      add rbx, cell_size
       push_return_stack rbx
       next
    #+end_src
@@ -1245,27 +1245,27 @@
       ;; << a, b -- a and b >>
       pop_argument_stack rbx
       mov rax, [pointer$argument_stack]
-      and [rax - (1 * jo_size)], rbx
+      and [rax - (1 * cell_size)], rbx
       next
 
    define_primitive_function "bitwise-or", bitwise_or
       ;; << a, b -- a or b >>
       pop_argument_stack rbx
       mov rax, [pointer$argument_stack]
-      or  [rax - (1 * jo_size)], rbx
+      or  [rax - (1 * cell_size)], rbx
       next
 
    define_primitive_function "bitwise-xor", bitwise_xor
       ;; << a, b -- a xor b >>
       pop_argument_stack rbx
       mov rax, [pointer$argument_stack]
-      xor [rax - (1 * jo_size)], rbx
+      xor [rax - (1 * cell_size)], rbx
       next
 
    define_primitive_function "bitwise-invert", bitwise_invert
       ;; << a -- invert a >>
       mov rax, [pointer$argument_stack]
-      not dword [rax - (1 * jo_size)]
+      not dword [rax - (1 * cell_size)]
       next
 
    }
@@ -1553,7 +1553,7 @@
    #+begin_src fasm :tangle cicada-nymph.fasm
    match =32bit, machine {
 
-   ;; "save" and "fetch" default to a jo_size
+   ;; "save" and "fetch" default to a cell_size
    ;; the rule of "fetch2" and so on are:
    ;;   in memory:
    ;;     ||  1 : value-1  ||
@@ -1598,16 +1598,16 @@
       ;; << value-n, ..., value-1, address, n -- >>
       pop_argument_stack rcx
       pop_argument_stack rdx
-      mov rax, jo_size
+      mov rax, cell_size
       imul rax, rcx
       add rdx, rax
       ;; for address is based on 0
       ;; but n is based on 1
-      sub rdx, jo_size
+      sub rdx, cell_size
    .loop:
       pop_argument_stack rax
       mov dword [rdx], rax
-      sub rdx, jo_size
+      sub rdx, cell_size
       loop .loop
       next
 
@@ -1692,7 +1692,7 @@
    .loop:
       mov rax, dword [rdx]
       push_argument_stack rax
-      add rdx, jo_size
+      add rdx, cell_size
       loop .loop
       next
 
@@ -1811,9 +1811,9 @@
       << counter, cursor, counter, cursor >>
 *** memory allocation
     #+begin_src fasm :tangle cicada-nymph.fasm
-    size$eval_string_stack = 1024 * jo_size
+    size$eval_string_stack = 1024 * cell_size
 
-       preserve 64 * jo_size
+       preserve 64 * cell_size
     address$eval_string_stack labeling
        preserve size$eval_string_stack
     #+end_src
@@ -1831,12 +1831,12 @@
         pop_argument_stack rax
         mov rbx, [pointer$eval_string_stack]
         mov [rbx], rax
-        add qword [pointer$eval_string_stack], jo_size
+        add qword [pointer$eval_string_stack], cell_size
         next
 
      define_primitive_function "pop-eval-string-stack", pop_eval_string_stack
         ;; eval-string-stack -> argument-stack
-        sub qword [pointer$eval_string_stack], jo_size
+        sub qword [pointer$eval_string_stack], cell_size
         mov rbx, [pointer$eval_string_stack]
         mov rax, [rbx]
         push_argument_stack rax
@@ -1853,12 +1853,12 @@
         pop_argument_stack rax
         mov rsi, [pointer$eval_string_stack]
         mov [rsi], rax
-        add dword [pointer$eval_string_stack], jo_size
+        add dword [pointer$eval_string_stack], cell_size
         next
 
      define_primitive_function "pop-eval-string-stack", pop_eval_string_stack
         ;; eval-string-stack -> argument-stack
-        sub dword [pointer$eval_string_stack], jo_size
+        sub dword [pointer$eval_string_stack], cell_size
         mov rsi, [pointer$eval_string_stack]
         mov rax, [rsi]
         push_argument_stack rax
@@ -1942,7 +1942,7 @@
 
    define_function "read-byte,without-unread", read_byte__without_unread
       ;; << -- byte >>
-      xx eval_string_stack_empty?, false?branch, (.not_empty-$)/jo_size
+      xx eval_string_stack_empty?, false?branch, (.not_empty-$)/cell_size
       xx   literal, buffer$read_byte
       xx   literal, max_input_length
       xx   read_line_from_stdin
